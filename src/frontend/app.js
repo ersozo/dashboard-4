@@ -18,6 +18,19 @@ const hourlyViewBtn = document.getElementById('hourly-view-btn');
 // Track the selected units
 let selectedUnits = [];
 
+// Function to determine current shift
+function getCurrentShift() {
+    const currentHour = new Date().getHours();
+    
+    if (currentHour >= 0 && currentHour < 8) {
+        return 'shift3';  // 00:00 - 08:00
+    } else if (currentHour >= 8 && currentHour < 16) {
+        return 'shift1';  // 08:00 - 16:00
+    } else {
+        return 'shift2';  // 16:00 - 24:00
+    }
+}
+
 // Initialize date/time pickers with default values
 function initializeDateTimePickers() {
     const now = new Date();
@@ -25,23 +38,20 @@ function initializeDateTimePickers() {
     // Determine current shift based on current time
     const currentHour = now.getHours();
     let shiftStartTime, shiftEndTime;
-    let currentShift = '';
+    let currentShift = getCurrentShift();
     
     if (currentHour >= 0 && currentHour < 8) {
         // Shift 3: 00:00 - 08:00
         shiftStartTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
         shiftEndTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0, 0);
-        currentShift = 'shift3';
     } else if (currentHour >= 8 && currentHour < 16) {
         // Shift 1: 08:00 - 16:00
         shiftStartTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0, 0);
         shiftEndTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 16, 0, 0, 0);
-        currentShift = 'shift1';
     } else {
-        // Shift 2: 16:00 - 00:00
+        // Shift 2: 16:00 - 24:00
         shiftStartTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 16, 0, 0, 0);
         shiftEndTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-        currentShift = 'shift2';
     }
     
     // Set the inputs with the current shift times
@@ -80,6 +90,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('input[name="time-preset"]').forEach(radio => {
         radio.addEventListener('change', handleTimePresetChange);
     });
+    
+    // Check if no shift is selected and select current shift if needed
+    setInterval(() => {
+        const selectedShift = document.querySelector('input[name="time-preset"]:checked');
+        if (!selectedShift || !selectedShift.value) {
+            const currentShift = getCurrentShift();
+            document.getElementById(`time-preset-${currentShift}`).checked = true;
+            handleTimePresetChange({ target: { value: currentShift } });
+        }
+    }, 1000); // Check every second
 });
 
 // Fetch production units from API
@@ -168,6 +188,14 @@ function handleTimePresetChange(event) {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
+    // If no preset is selected, use current shift
+    if (!presetValue) {
+        const currentShift = getCurrentShift();
+        document.getElementById(`time-preset-${currentShift}`).checked = true;
+        handleTimePresetChange({ target: { value: currentShift } });
+        return;
+    }
+    
     switch(presetValue) {
         case 'shift1':
             startTimeInput.value = formatDateTimeForInput(new Date(today.setHours(8, 0, 0, 0)));
@@ -186,10 +214,6 @@ function handleTimePresetChange(event) {
             endTimeInput.value = formatDateTimeForInput(now > new Date(today.getFullYear(), today.getMonth(), today.getDate(), 8, 0, 0, 0) 
                 ? new Date(today.getFullYear(), today.getMonth(), today.getDate(), 8, 0, 0, 0) 
                 : now);
-            break;
-        case 'today':
-            startTimeInput.value = formatDateTimeForInput(new Date(today.setHours(0, 0, 0, 0)));
-            endTimeInput.value = formatDateTimeForInput(now);
             break;
     }
 }

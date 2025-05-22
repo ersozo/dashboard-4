@@ -216,7 +216,7 @@ async def hourly_websocket_endpoint(websocket: WebSocket, unit_name: str):
                 
                 # Get all raw data in one query for the entire time range
                 raw_data = get_production_data(unit_name, start_time, end_time, current_time)
-                print(f"Retrieved {len(raw_data)} raw data records for the entire period")
+                # print(f"Retrieved {len(raw_data)} raw data records for the entire period")
                 
                 # Calculate totals from raw data first
                 total_success = sum(model['success_qty'] for model in raw_data)
@@ -370,7 +370,7 @@ async def hourly_websocket_endpoint(websocket: WebSocket, unit_name: str):
                 cursor.close()
                 conn.close()
                 
-                print("\nHourly data summary:")
+                # print("\nHourly data summary:")
                 # Calculate metrics for each hour
                 for hour_key, container in hour_containers.items():
                     hour_start = container['hour_start']
@@ -426,10 +426,10 @@ async def hourly_websocket_endpoint(websocket: WebSocket, unit_name: str):
                     # Add hour to final data
                     hourly_data.append(hour_summary)
                     
-                    # Log hour summary
-                    quality_str = f"{hour_summary['quality']*100:.4f}%" if hour_summary['quality'] is not None else "None"
-                    performance_str = f"{hour_summary['performance']*100:.4f}%" if hour_summary['performance'] is not None else "None"
-                    oee_str = f"{hour_summary['oee']*100:.4f}%" if hour_summary['oee'] is not None else "None"
+                    # # Log hour summary
+                    # quality_str = f"{hour_summary['quality']*100:.4f}%" if hour_summary['quality'] is not None else "None"
+                    # performance_str = f"{hour_summary['performance']*100:.4f}%" if hour_summary['performance'] is not None else "None"
+                    # oee_str = f"{hour_summary['oee']*100:.4f}%" if hour_summary['oee'] is not None else "None"
                     
                     # print(f"Hour {hour_start.hour}:00-{hour_end.hour}:00: " + 
                     #       f"success={hour_summary['success_qty']}, " +
@@ -448,8 +448,8 @@ async def hourly_websocket_endpoint(websocket: WebSocket, unit_name: str):
                 # print(f"Raw data totals: success={total_success}, fail={total_fail}, total={total_qty}")
                 # print(f"Hourly data totals: success={hourly_success}, fail={hourly_fail}, total={hourly_total}")
                 
-                if hourly_success != total_success or hourly_fail != total_fail or hourly_total != total_qty:
-                    print("WARNING: Hourly totals do not match raw data totals!")
+                # if hourly_success != total_success or hourly_fail != total_fail or hourly_total != total_qty:
+                #     print("WARNING: Hourly totals do not match raw data totals!")
                     # In case of discrepancy, you can optionally normalize hourly data to match raw totals
                     # But this could hide underlying issues, so we'll keep it commented for now
                     # total_factor = total_qty / hourly_total if hourly_total > 0 else 1
@@ -457,8 +457,8 @@ async def hourly_websocket_endpoint(websocket: WebSocket, unit_name: str):
                     #     hour['success_qty'] = int(hour['success_qty'] * total_factor)
                     #     hour['fail_qty'] = int(hour['fail_qty'] * total_factor)
                     #     hour['total_qty'] = hour['success_qty'] + hour['fail_qty']
-                else:
-                    print("Verification successful: Hourly totals match raw data totals")
+                # else:
+                #     print("Verification successful: Hourly totals match raw data totals")
                 
                 # Finalize the response data
                 response_data = {
@@ -492,31 +492,31 @@ async def hourly_websocket_endpoint(websocket: WebSocket, unit_name: str):
                 await asyncio.sleep(30)
             except WebSocketDisconnect:
                 # If websocket is disconnected during processing, break the loop
-                print(f"Hourly WebSocket disconnected during processing for {unit_name}")
+                # print(f"Hourly WebSocket disconnected during processing for {unit_name}")
                 break
             except ValueError as e:
-                print(f"Error processing hourly WebSocket data: {e}")
+                # print(f"Error processing hourly WebSocket data: {e}")
                 try:
                     error_response = {"error": str(e)}
                     await websocket.send_json(error_response)
                 except Exception as e:
                     # Handle any exception during error response sending
-                    print(f"Could not send error response: {str(e)}")
+                    # print(f"Could not send error response: {str(e)}")
                     break
             except Exception as e:
-                print(f"Unexpected error in hourly WebSocket connection: {e}")
+                # print(f"Unexpected error in hourly WebSocket connection: {e}")
                 try:
                     error_response = {"error": "An unexpected error occurred"}
                     await websocket.send_json(error_response)
                 except Exception as send_err:
                     # Handle any exception during error response sending
-                    print(f"Could not send error response: {str(send_err)}")
+                    # print(f"Could not send error response: {str(send_err)}")
                     break
     except Exception as e:
         print(f"Outer exception in hourly WebSocket handler: {e}")
     finally:
         manager.disconnect(websocket, 'hourly')
-        print(f"Hourly WebSocket connection cleaned up for {unit_name}")
+        # print(f"Hourly WebSocket connection cleaned up for {unit_name}")
 
 if __name__ == "__main__":
     import uvicorn

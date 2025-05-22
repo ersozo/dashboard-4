@@ -15,6 +15,65 @@ let unitContainers = {};
 // Create a last update display
 let lastUpdateDisplay = null;
 
+// Function to check if we need to update to a new time period
+function checkForNewTimePeriod() {
+    if (!timePresetValue || !startTime || !endTime) return false;
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startDay = new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate());
+
+    // Only check for updates if we're viewing today's data
+    if (startDay.getTime() !== today.getTime()) {
+        return false;  // Don't update if viewing historical data
+    }
+
+    const currentHour = now.getHours();
+    const currentDate = now.getDate();
+
+    // Simple check based on current preset
+    switch(timePresetValue) {
+        case 'shift1':  // 08:00 - 16:00
+            return currentHour >= 8 && currentHour < 16 && 
+                   (startTime.getHours() !== 8 || startTime.getDate() !== currentDate);
+            
+        case 'shift2':  // 16:00 - 24:00
+            return currentHour >= 16 && 
+                   (startTime.getHours() !== 16 || startTime.getDate() !== currentDate);
+            
+        case 'shift3':  // 00:00 - 08:00
+            return currentHour < 8 && 
+                   (startTime.getHours() !== 0 || startTime.getDate() !== currentDate);
+            
+        default:
+            return false;
+    }
+}
+
+// Function to update time period
+function updateTimePeriod() {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Only update if we're viewing today's data
+    if (startTime.getDate() !== today.getDate()) {
+        return;  // Don't update if viewing historical data
+    }
+
+    switch(timePresetValue) {
+        case 'shift1':
+            startTime = new Date(today.setHours(8, 0, 0, 0));
+            break;
+        case 'shift2':
+            startTime = new Date(today.setHours(16, 0, 0, 0));
+            break;
+        case 'shift3':
+            startTime = new Date(today.setHours(0, 0, 0, 0));
+            break;
+    }
+    endTime = now;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Update current time every second
     updateCurrentTime();
@@ -51,6 +110,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Load data for each unit
     loadHourlyData();
+    
+    // Set up periodic checks for new time periods
+    setInterval(() => {
+        if (checkForNewTimePeriod()) {
+            updateTimePeriod();
+            loadHourlyData();
+            console.log('Time period updated:', formatDateForDisplay(startTime), 'to', formatDateForDisplay(endTime));
+        }
+    }, 60000); // Check every minute
     
     // Clean up WebSocket connections when page unloads
     window.addEventListener('beforeunload', () => {
@@ -298,13 +366,13 @@ function createOrUpdateHourlyDataDisplay(unitName, data) {
     const headerRow = document.createElement('tr');
     
     const headers = [
-        'SAAT', 'ÜRETİM', 'TAMİR', 'KALİTE (%)', 'PERF. (%)', 'OEE (%)'
+        'Saat', 'Üretim', 'Tamir', 'Kalite(%)', 'Perf.(%)', 'OEE(%)'
     ];
     
     headers.forEach(headerText => {
         const th = document.createElement('th');
         th.scope = 'col';
-        th.className = 'px-2 py-2 text-center font-bold text-black text-2xl tracking-wider';
+        th.className = 'px-2 py-2 text-center font-bold text-black text-3xl tracking-wider';
         th.textContent = headerText;
         headerRow.appendChild(th);
     });
@@ -512,7 +580,7 @@ function updateTableBody(tableBody, hourlyData) {
         // Success quantity (Production)
         const successQty = hour.success_qty || 0;
         const successCell = document.createElement('td');
-        successCell.className = 'px-2 py-2 text-center text-black font-bold text-xl';
+        successCell.className = 'px-2 py-2 text-center text-black font-bold text-3xl';
         successCell.id = `success-${hour._startDate.getHours()}`;
         successCell.textContent = successQty.toLocaleString();
         row.appendChild(successCell);
@@ -520,14 +588,14 @@ function updateTableBody(tableBody, hourlyData) {
         // Fail quantity (Repair)
         const failQty = hour.fail_qty || 0;
         const failCell = document.createElement('td');
-        failCell.className = 'px-2 py-2 text-center text-red-900 font-bold text-xl ';
+        failCell.className = 'px-2 py-2 text-center text-red-900 font-bold text-3xl ';
         failCell.id = `fail-${hour._startDate.getHours()}`;
         failCell.textContent = failQty.toLocaleString();
         row.appendChild(failCell);
         
         // Quality
         const qualityCell = document.createElement('td');
-        qualityCell.className = 'px-2 py-2 text-center text-black font-bold text-xl';
+        qualityCell.className = 'px-2 py-2 text-center text-black font-bold text-3xl';
         qualityCell.id = `quality-${hour._startDate.getHours()}`;
         
         // Use the hour's quality directly from the data
@@ -541,7 +609,7 @@ function updateTableBody(tableBody, hourlyData) {
         
         // Performance
         const performanceCell = document.createElement('td');
-        performanceCell.className = 'px-2 py-2 text-center text-black font-bold text-xl';
+        performanceCell.className = 'px-2 py-2 text-center text-black font-bold text-3xl';
         performanceCell.id = `performance-${hour._startDate.getHours()}`;
         // Handle null/zero values explicitly
         if (hour.performance === null || hour.performance === undefined || hour.performance === 0) {
@@ -553,7 +621,7 @@ function updateTableBody(tableBody, hourlyData) {
         
         // OEE
         const oeeCell = document.createElement('td');
-        oeeCell.className = 'px-2 py-2 text-center text-black font-bold text-xl';
+        oeeCell.className = 'px-2 py-2 text-center text-black font-bold text-3xl';
         oeeCell.id = `oee-${hour._startDate.getHours()}`;
         // Handle null/zero values explicitly
         if (hour.oee === null || hour.oee === undefined || hour.oee === 0) {
