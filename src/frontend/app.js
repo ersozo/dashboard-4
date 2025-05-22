@@ -225,12 +225,12 @@ standardViewBtn.addEventListener('click', () => {
     const endTime = parseInputDateTime(endTimeInput.value);
     
     if (!startTime || !endTime) {
-        alert('Please select valid start and end times');
+        alert('Lütfen geçerli bir başlangıç ve bitiş zamanı seçiniz');
         return;
     }
     
     if (selectedUnits.length === 0) {
-        alert('Please select at least one unit');
+        alert('Lütfen en az bir üretim yerini seçiniz');
         return;
     }
     
@@ -259,7 +259,7 @@ standardViewBtn.addEventListener('click', () => {
         newWindow.focus();
     } else {
         // If popup was blocked, alert the user
-        alert('Pop-up blocked by browser. Please allow pop-ups for this site.');
+        alert('Tarayıcınızda pop-up engellendi. Lütfen bu site için pop-uplara izin veriniz.');
     }
 });
 
@@ -270,12 +270,12 @@ hourlyViewBtn.addEventListener('click', () => {
     const endTime = parseInputDateTime(endTimeInput.value);
     
     if (!startTime || !endTime) {
-        alert('Please select valid start and end times');
+        alert('Lütfen geçerli bir başlangıç ve bitiş zamanı seçiniz');
         return;
     }
     
     if (selectedUnits.length === 0) {
-        alert('Please select at least one unit');
+        alert('Lütfen en az bir üretim yerini seçiniz');
         return;
     }
     
@@ -304,6 +304,6 @@ hourlyViewBtn.addEventListener('click', () => {
         newWindow.focus();
     } else {
         // If popup was blocked, alert the user
-        alert('Pop-up blocked by browser. Please allow pop-ups for this site.');
+        alert('Tarayıcınızda pop-up engellendi. Lütfen bu site için pop-uplara izin veriniz.');
     }
 });
