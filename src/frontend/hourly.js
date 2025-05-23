@@ -56,22 +56,42 @@ function updateTimePeriod() {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     // Only update if we're viewing today's data
-    if (startTime.getDate() !== today.getDate()) {
+    const startDay = new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate());
+    if (startDay.getTime() !== today.getTime()) {
         return;  // Don't update if viewing historical data
     }
 
+    let newStartTime;
+    const currentHour = now.getHours();
+
     switch(timePresetValue) {
-        case 'shift1':
-            startTime = new Date(today.setHours(8, 0, 0, 0));
+        case 'shift1':  // 08:00 - 16:00
+            newStartTime = new Date(today.setHours(8, 0, 0, 0));
             break;
-        case 'shift2':
-            startTime = new Date(today.setHours(16, 0, 0, 0));
+        case 'shift2':  // 16:00 - 24:00
+            newStartTime = new Date(today.setHours(16, 0, 0, 0));
             break;
-        case 'shift3':
-            startTime = new Date(today.setHours(0, 0, 0, 0));
+        case 'shift3':  // 00:00 - 08:00
+            if (currentHour < 8) {
+                // If current time is before 8 AM, use today's date
+                newStartTime = new Date(today.setHours(0, 0, 0, 0));
+            } else {
+                // If current time is after 8 AM, this must be next day's shift
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                newStartTime = new Date(tomorrow.setHours(0, 0, 0, 0));
+            }
             break;
     }
-    endTime = now;
+
+    // Only update if the new start time is different
+    if (newStartTime && newStartTime.getTime() !== startTime.getTime()) {
+        startTime = newStartTime;
+        endTime = now;
+        // Reload data with new time period
+        loadHourlyData();
+        console.log('Time period updated:', formatDateForDisplay(startTime), 'to', formatDateForDisplay(endTime));
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -754,7 +774,7 @@ function connectHourlyWebSocket(unitName, startTime, endTime, callback) {
                     data.hourly_data.forEach(hour => {
                         const startTime = new Date(hour.hour_start);
                         const endTime = new Date(hour.hour_end);
-                        console.log(`  ${startTime.getHours()}:00-${endTime.getHours()}:00: Success=${hour.success_qty}, Fail=${hour.fail_qty}, Quality=${hour.quality !== null && hour.quality !== undefined ? (hour.quality * 100).toFixed(2) : 'N/A'}%`);
+                        console.log(`${startTime.getHours()}:00-${endTime.getHours()}:00: Success=${hour.success_qty}, Fail=${hour.fail_qty}, Quality=${hour.quality !== null && hour.quality !== undefined ? (hour.quality * 100).toFixed(2) : 'N/A'}%`);
                     });
                     
                     // Find current hour
@@ -828,7 +848,7 @@ function connectHourlyWebSocket(unitName, startTime, endTime, callback) {
                 if (!hasReceivedInitialData) {
                     hasReceivedInitialData = true;
                     clearTimeout(connectionTimeout);
-                callback(data);
+                    callback(data);
                 } else {
                     // If not the initial load, update the display directly
                     createOrUpdateHourlyDataDisplay(unitName, data);
@@ -842,7 +862,7 @@ function connectHourlyWebSocket(unitName, startTime, endTime, callback) {
             if (!hasReceivedInitialData) {
                 hasReceivedInitialData = true;
                 clearTimeout(connectionTimeout);
-            callback(null);
+                callback(null);
             }
         }
     };
@@ -881,4 +901,4 @@ function connectHourlyWebSocket(unitName, startTime, endTime, callback) {
             callback(null);
         }
     };
-} 
+}
