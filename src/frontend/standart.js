@@ -16,6 +16,7 @@ let selectedUnits = [];
 let startTime = null;
 let endTime = null;
 let timePresetValue = '';
+let workingModeValue = 'mode1'; // Default to mode1
 // Store WebSocket connections for each unit
 let unitSockets = {};
 // Store unit data containers to update them
@@ -26,6 +27,32 @@ let allConnectionsEstablished = false;
 let lastUpdateTime = null;
 // Store elements that need to flash on update
 let elementsToFlashOnUpdate = [];
+
+// Working mode configurations (same as in app.js and hourly.js)
+const workingModes = {
+    mode1: {
+        name: 'Mod 1 (Mevcut)',
+        shifts: [
+            { id: 'shift1', name: '08:00 - 16:00', start: 8, end: 16, crossesMidnight: false },
+            { id: 'shift2', name: '16:00 - 24:00', start: 16, end: 24, crossesMidnight: false },
+            { id: 'shift3', name: '00:00 - 08:00', start: 0, end: 8, crossesMidnight: false }
+        ]
+    },
+    mode2: {
+        name: 'Mod 2',
+        shifts: [
+            { id: 'shift1', name: '08:00 - 18:00', start: 8, end: 18, crossesMidnight: false },
+            { id: 'shift2', name: '20:00 - 08:00', start: 20, end: 8, crossesMidnight: true }
+        ]
+    },
+    mode3: {
+        name: 'Mod 3',
+        shifts: [
+            { id: 'shift1', name: '08:00 - 20:00', start: 8, end: 20, crossesMidnight: false },
+            { id: 'shift2', name: '20:00 - 08:00', start: 20, end: 8, crossesMidnight: true }
+        ]
+    }
+};
 
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize all DOM elements
@@ -70,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const startParam = params.get('start');
     const endParam = params.get('end');
     timePresetValue = params.get('preset') || '';
+    workingModeValue = params.get('workingMode') || 'mode1'; // Default to mode1 if not specified
     
     if (startParam) {
         startTime = new Date(startParam);
@@ -158,25 +186,35 @@ function updateTimeDisplay() {
     let timeRangeText = `${formatDateForDisplay(startTime)} - ${formatDateForDisplay(endTime)}`;
     
     // Add preset name if available
-    if (timePresetValue) {
-        let presetName = '';
-        switch(timePresetValue) {
-            case 'shift1':
-                presetName = 'Vardiya 1 (08:00 - 16:00)';
-                break;
-            case 'shift2':
-                presetName = 'Vardiya 2 (16:00 - 24:00)';
-                break;
-            case 'shift3':
-                presetName = 'Vardiya 3 (00:00 - 08:00)';
-                break;
-            case 'today':
-                presetName = 'Bugün';
-                break;
-        }
+    if (timePresetValue && workingModeValue) {
+        const shifts = workingModes[workingModeValue].shifts;
+        const shiftConfig = shifts.find(s => s.id === timePresetValue);
         
-        if (presetName) {
+        if (shiftConfig) {
+            const workingModeName = workingModes[workingModeValue].name;
+            const presetName = `${workingModeName} - Vardiya: ${shiftConfig.name}`;
             timeRangeText = `${presetName}: ${timeRangeText}`;
+        } else {
+            // Fallback for legacy shift names
+            let presetName = '';
+            switch(timePresetValue) {
+                case 'shift1':
+                    presetName = 'Vardiya 1';
+                    break;
+                case 'shift2':
+                    presetName = 'Vardiya 2';
+                    break;
+                case 'shift3':
+                    presetName = 'Vardiya 3';
+                    break;
+                case 'today':
+                    presetName = 'Bugün';
+                    break;
+            }
+            
+            if (presetName) {
+                timeRangeText = `${presetName}: ${timeRangeText}`;
+            }
         }
     }
     

@@ -38,22 +38,39 @@
                     </div>
                 </div>
                 
-                <!-- Time preset -->
+                <!-- Working Mode Selection -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Zaman Aralıkları</label>
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Çalışma Düzeni</label>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
                         <div class="flex items-center px-3 py-2 border border-gray-300 rounded-md bg-white">
-                            <input type="radio" id="time-preset-shift1" name="time-preset" value="shift1" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
-                            <label for="time-preset-shift1" class="ml-2 block text-sm text-gray-900">08:00 - 16:00</label>
+                            <input type="radio" id="working-mode-1" name="working-mode" value="mode1" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" checked>
+                            <label for="working-mode-1" class="ml-2 block text-sm text-gray-900">
+                                <div class="font-medium">3 Vardiya</div>
+                                <div class="text-xs text-gray-500">08:00-16:00, 16:00-24:00, 00:00-08:00</div>
+                            </label>
                         </div>
                         <div class="flex items-center px-3 py-2 border border-gray-300 rounded-md bg-white">
-                            <input type="radio" id="time-preset-shift2" name="time-preset" value="shift2" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
-                            <label for="time-preset-shift2" class="ml-2 block text-sm text-gray-900">16:00 - 24:00</label>
+                            <input type="radio" id="working-mode-2" name="working-mode" value="mode2" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                            <label for="working-mode-2" class="ml-2 block text-sm text-gray-900">
+                                <div class="font-medium">2 Vardiya</div>
+                                <div class="text-xs text-gray-500">08:00-18:00, 20:00-08:00</div>
+                            </label>
                         </div>
                         <div class="flex items-center px-3 py-2 border border-gray-300 rounded-md bg-white">
-                            <input type="radio" id="time-preset-shift3" name="time-preset" value="shift3" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
-                            <label for="time-preset-shift3" class="ml-2 block text-sm text-gray-900">00:00 - 08:00</label>
+                            <input type="radio" id="working-mode-3" name="working-mode" value="mode3" class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                            <label for="working-mode-3" class="ml-2 block text-sm text-gray-900">
+                                <div class="font-medium">2 Vardiya (12 saat)</div>
+                                <div class="text-xs text-gray-500">08:00-20:00, 20:00-08:00</div>
+                            </label>
                         </div>
+                    </div>
+                </div>
+                
+                <!-- Vardiya selection - dynamically populated based on working mode -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Vardiya</label>
+                    <div id="shift-container" class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        <!-- Shifts will be dynamically populated based on working mode -->
                     </div>
                 </div>
                 

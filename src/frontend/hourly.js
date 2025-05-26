@@ -8,6 +8,7 @@ let selectedUnits = [];
 let startTime = null;
 let endTime = null;
 let timePresetValue = '';
+let workingModeValue = 'mode1'; // Default to mode1
 // Store WebSocket connections for each unit
 let unitSockets = {};
 // Store unit data containers to update them
@@ -15,9 +16,35 @@ let unitContainers = {};
 // Create a last update display
 let lastUpdateDisplay = null;
 
+// Working mode configurations (same as in app.js)
+const workingModes = {
+    mode1: {
+        name: 'Mod 1 (Mevcut)',
+        shifts: [
+            { id: 'shift1', name: '08:00 - 16:00', start: 8, end: 16, crossesMidnight: false },
+            { id: 'shift2', name: '16:00 - 24:00', start: 16, end: 24, crossesMidnight: false },
+            { id: 'shift3', name: '00:00 - 08:00', start: 0, end: 8, crossesMidnight: false }
+        ]
+    },
+    mode2: {
+        name: 'Mod 2',
+        shifts: [
+            { id: 'shift1', name: '08:00 - 18:00', start: 8, end: 18, crossesMidnight: false },
+            { id: 'shift2', name: '20:00 - 08:00', start: 20, end: 8, crossesMidnight: true }
+        ]
+    },
+    mode3: {
+        name: 'Mod 3',
+        shifts: [
+            { id: 'shift1', name: '08:00 - 20:00', start: 8, end: 20, crossesMidnight: false },
+            { id: 'shift2', name: '20:00 - 08:00', start: 20, end: 8, crossesMidnight: true }
+        ]
+    }
+};
+
 // Function to check if we need to update to a new time period
 function checkForNewTimePeriod() {
-    if (!timePresetValue || !startTime || !endTime) return false;
+    if (!timePresetValue || !startTime || !endTime || !workingModeValue) return false;
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -29,25 +56,55 @@ function checkForNewTimePeriod() {
     }
 
     const currentHour = now.getHours();
-    const currentDate = now.getDate();
+    const shifts = workingModes[workingModeValue].shifts;
+    const currentShiftConfig = shifts.find(s => s.id === timePresetValue);
+    
+    if (!currentShiftConfig) return false;
 
-    // Simple check based on current preset
-    switch(timePresetValue) {
-        case 'shift1':  // 08:00 - 16:00
-            return currentHour >= 8 && currentHour < 16 && 
-                   (startTime.getHours() !== 8 || startTime.getDate() !== currentDate);
-            
-        case 'shift2':  // 16:00 - 24:00
-            return currentHour >= 16 && 
-                   (startTime.getHours() !== 16 || startTime.getDate() !== currentDate);
-            
-        case 'shift3':  // 00:00 - 08:00
-            return currentHour < 8 && 
-                   (startTime.getHours() !== 0 || startTime.getDate() !== currentDate);
-            
-        default:
-            return false;
+    // Check if we're currently in the expected shift
+    let isInCurrentShift = false;
+    
+    if (currentShiftConfig.crossesMidnight) {
+        // For shifts that cross midnight
+        isInCurrentShift = (currentHour >= currentShiftConfig.start) || (currentHour < currentShiftConfig.end);
+    } else {
+        // For regular shifts
+        isInCurrentShift = (currentHour >= currentShiftConfig.start) && (currentHour < currentShiftConfig.end);
     }
+    
+    // If we're not in the current shift anymore, we need to update
+    if (!isInCurrentShift) {
+        return true;
+    }
+    
+    // Check if the start time needs to be updated for midnight-crossing shifts
+    if (currentShiftConfig.crossesMidnight) {
+        const expectedStartTime = getShiftStartTime(currentShiftConfig, now);
+        return Math.abs(startTime.getTime() - expectedStartTime.getTime()) > 60000; // More than 1 minute difference
+    }
+    
+    return false;
+}
+
+// Helper function to get the correct start time for a shift
+function getShiftStartTime(shiftConfig, referenceTime) {
+    const today = new Date(referenceTime.getFullYear(), referenceTime.getMonth(), referenceTime.getDate());
+    const currentHour = referenceTime.getHours();
+    
+    if (shiftConfig.crossesMidnight) {
+        if (currentHour >= shiftConfig.start) {
+            // We're in the first part of the shift (before midnight)
+            return new Date(today.setHours(shiftConfig.start, 0, 0, 0));
+        } else if (currentHour < shiftConfig.end) {
+            // We're in the second part of the shift (after midnight)
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            return new Date(yesterday.setHours(shiftConfig.start, 0, 0, 0));
+        }
+    }
+    
+    // For regular shifts or when between shifts
+    return new Date(today.setHours(shiftConfig.start, 0, 0, 0));
 }
 
 // Function to update time period
@@ -61,29 +118,37 @@ function updateTimePeriod() {
         return;  // Don't update if viewing historical data
     }
 
-    let newStartTime;
     const currentHour = now.getHours();
-
-    switch(timePresetValue) {
-        case 'shift1':  // 08:00 - 16:00
-            newStartTime = new Date(today.setHours(8, 0, 0, 0));
-            break;
-        case 'shift2':  // 16:00 - 24:00
-            newStartTime = new Date(today.setHours(16, 0, 0, 0));
-            break;
-        case 'shift3':  // 00:00 - 08:00
-            if (currentHour < 8) {
-                // If current time is before 8 AM, use today's date
-                newStartTime = new Date(today.setHours(0, 0, 0, 0));
-            } else {
-                // If current time is after 8 AM, this must be next day's shift
-                const tomorrow = new Date(today);
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                newStartTime = new Date(tomorrow.setHours(0, 0, 0, 0));
+    const shifts = workingModes[workingModeValue].shifts;
+    
+    // Find which shift we should be in now
+    let currentShiftConfig = null;
+    for (const shift of shifts) {
+        if (shift.crossesMidnight) {
+            if ((currentHour >= shift.start) || (currentHour < shift.end)) {
+                currentShiftConfig = shift;
+                break;
             }
-            break;
+        } else {
+            if ((currentHour >= shift.start) && (currentHour < shift.end)) {
+                currentShiftConfig = shift;
+                break;
+            }
+        }
     }
-
+    
+    if (!currentShiftConfig) {
+        return; // No active shift found
+    }
+    
+    // Update the preset value if it changed
+    if (timePresetValue !== currentShiftConfig.id) {
+        timePresetValue = currentShiftConfig.id;
+    }
+    
+    // Calculate new start time
+    const newStartTime = getShiftStartTime(currentShiftConfig, now);
+    
     // Only update if the new start time is different
     if (newStartTime && newStartTime.getTime() !== startTime.getTime()) {
         startTime = newStartTime;
@@ -109,6 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const startParam = params.get('start');
     const endParam = params.get('end');
     timePresetValue = params.get('preset') || '';
+    workingModeValue = params.get('workingMode') || 'mode1'; // Default to mode1 if not specified
     
     if (startParam) {
         startTime = new Date(startParam);
