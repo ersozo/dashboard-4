@@ -554,7 +554,7 @@ function createUnitTables(unitDataMap) {
     if (unitCount === 0) {
         const noDataMessage = document.createElement('div');
         noDataMessage.className = 'bg-yellow-100 p-4 rounded-lg border border-yellow-300 text-yellow-800';
-        noDataMessage.textContent = 'No data available for the selected units in this time range.';
+        noDataMessage.textContent = 'Bu zaman aralığında seçilen birimler için veri bulunamadı.';
         unitsContainer.appendChild(noDataMessage);
     }
 }
