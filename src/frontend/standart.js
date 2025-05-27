@@ -54,6 +54,139 @@ const workingModes = {
     }
 };
 
+// Function to check if we need to update to a new time period
+function checkForNewTimePeriod() {
+    if (!timePresetValue || !startTime || !endTime || !workingModeValue) return false;
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startDay = new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate());
+
+    // Only check for updates if we're viewing today's data
+    if (startDay.getTime() !== today.getTime()) {
+        return false;  // Don't update if viewing historical data
+    }
+
+    const currentHour = now.getHours();
+    const shifts = workingModes[workingModeValue].shifts;
+    const currentShiftConfig = shifts.find(s => s.id === timePresetValue);
+    
+    if (!currentShiftConfig) return false;
+
+    // Check if we're currently in the expected shift
+    let isInCurrentShift = false;
+    
+    if (currentShiftConfig.crossesMidnight) {
+        // For shifts that cross midnight
+        isInCurrentShift = (currentHour >= currentShiftConfig.start) || (currentHour < currentShiftConfig.end);
+    } else {
+        // For regular shifts
+        isInCurrentShift = (currentHour >= currentShiftConfig.start) && (currentHour < currentShiftConfig.end);
+    }
+    
+    // If we're not in the current shift anymore, we need to update
+    if (!isInCurrentShift) {
+        return true;
+    }
+    
+    // Check if the start time needs to be updated for midnight-crossing shifts
+    if (currentShiftConfig.crossesMidnight) {
+        const expectedStartTime = getShiftStartTime(currentShiftConfig, now);
+        return Math.abs(startTime.getTime() - expectedStartTime.getTime()) > 60000; // More than 1 minute difference
+    }
+    
+    return false;
+}
+
+// Helper function to get the correct start time for a shift
+function getShiftStartTime(shiftConfig, referenceTime) {
+    const today = new Date(referenceTime.getFullYear(), referenceTime.getMonth(), referenceTime.getDate());
+    const currentHour = referenceTime.getHours();
+    
+    if (shiftConfig.crossesMidnight) {
+        if (currentHour >= shiftConfig.start) {
+            // We're in the first part of the shift (before midnight)
+            return new Date(today.setHours(shiftConfig.start, 0, 0, 0));
+        } else if (currentHour < shiftConfig.end) {
+            // We're in the second part of the shift (after midnight)
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            return new Date(yesterday.setHours(shiftConfig.start, 0, 0, 0));
+        }
+    }
+    
+    // For regular shifts or when between shifts
+    return new Date(today.setHours(shiftConfig.start, 0, 0, 0));
+}
+
+// Function to update time period
+function updateTimePeriod() {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Only update if we're viewing today's data
+    const startDay = new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate());
+    if (startDay.getTime() !== today.getTime()) {
+        return;  // Don't update if viewing historical data
+    }
+
+    const currentHour = now.getHours();
+    const shifts = workingModes[workingModeValue].shifts;
+    
+    // Find which shift we should be in now
+    let currentShiftConfig = null;
+    for (const shift of shifts) {
+        if (shift.crossesMidnight) {
+            if ((currentHour >= shift.start) || (currentHour < shift.end)) {
+                currentShiftConfig = shift;
+                break;
+            }
+        } else {
+            if ((currentHour >= shift.start) && (currentHour < shift.end)) {
+                currentShiftConfig = shift;
+                break;
+            }
+        }
+    }
+    
+    if (!currentShiftConfig) {
+        return; // No active shift found
+    }
+    
+    // Update the preset value if it changed
+    if (timePresetValue !== currentShiftConfig.id) {
+        timePresetValue = currentShiftConfig.id;
+    }
+    
+    // Calculate new start time
+    const newStartTime = getShiftStartTime(currentShiftConfig, now);
+    
+    // Only update if the new start time is different
+    if (newStartTime && newStartTime.getTime() !== startTime.getTime()) {
+        startTime = newStartTime;
+        endTime = now;
+        
+        // Update the time display
+        updateTimeDisplay();
+        
+        // Close existing WebSocket connections to restart with new time parameters
+        for (const unitName in unitSockets) {
+            if (unitSockets[unitName]) {
+                unitSockets[unitName].close();
+                delete unitSockets[unitName];
+            }
+        }
+        
+        // Clear existing unit data
+        unitData = {};
+        allConnectionsEstablished = false;
+        
+        // Reload data with new time period
+        loadData();
+        console.log('Time period updated:', formatDateForDisplay(startTime), 'to', formatDateForDisplay(endTime));
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize all DOM elements
     unitsContainer = document.getElementById('units-container');
@@ -125,6 +258,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Load data for each unit
     loadData();
+    
+    // Set up periodic checks for new time periods
+    setInterval(() => {
+        if (checkForNewTimePeriod()) {
+            updateTimePeriod();
+            console.log('Standard view: Time period updated automatically');
+        }
+    }, 60000); // Check every minute
     
     // Clean up WebSocket connections when page unloads
     window.addEventListener('beforeunload', () => {
@@ -583,12 +724,12 @@ function connectWebSocket(unitName, startTime, endTime, callback) {
             // Show the updating indicator
             showUpdatingIndicator();
             
-            // Use the original start time but use current time as the end time for real-time data
+            // Use the current global start time and end time (which get updated when shifts change)
             const currentEndTime = new Date();
             
             // Send parameters to request new data
             const params = {
-                start_time: startTime.toISOString(),
+                start_time: startTime.toISOString(), // This will use the updated startTime if shift changed
                 end_time: currentEndTime.toISOString() // Update to current time
             };
             

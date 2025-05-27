@@ -153,9 +153,22 @@ function updateTimePeriod() {
     if (newStartTime && newStartTime.getTime() !== startTime.getTime()) {
         startTime = newStartTime;
         endTime = now;
+        
+        // Close existing WebSocket connections to restart with new time parameters
+        for (const unitName in unitSockets) {
+            if (unitSockets[unitName]) {
+                console.log(`Closing WebSocket connection for "${unitName}" due to shift change`);
+                unitSockets[unitName].close();
+                delete unitSockets[unitName];
+            }
+        }
+        
+        // Clear existing unit containers to force recreation
+        unitContainers = {};
+        
         // Reload data with new time period
         loadHourlyData();
-        console.log('Time period updated:', formatDateForDisplay(startTime), 'to', formatDateForDisplay(endTime));
+        console.log('Hourly view: Time period updated automatically:', formatDateForDisplay(startTime), 'to', formatDateForDisplay(endTime));
     }
 }
 
@@ -200,9 +213,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Set up periodic checks for new time periods
     setInterval(() => {
         if (checkForNewTimePeriod()) {
+            console.log('Hourly view: Shift change detected, updating time period...');
             updateTimePeriod();
-            loadHourlyData();
-            console.log('Time period updated:', formatDateForDisplay(startTime), 'to', formatDateForDisplay(endTime));
         }
     }, 60000); // Check every minute
     
@@ -290,6 +302,18 @@ function loadHourlyData() {
     
     // Clear hourly data container
     hourlyDataContainer.innerHTML = '';
+    
+    // Ensure any existing WebSocket connections are closed before creating new ones
+    for (const unitName in unitSockets) {
+        if (unitSockets[unitName] && unitSockets[unitName].readyState === WebSocket.OPEN) {
+            console.log(`Closing existing WebSocket connection for "${unitName}" before reload`);
+            unitSockets[unitName].close();
+        }
+    }
+    
+    // Clear the sockets object and unit containers
+    unitSockets = {};
+    unitContainers = {};
     
     // Set the grid layout based on number of units
     if (selectedUnits.length === 1) {
@@ -756,16 +780,16 @@ function connectHourlyWebSocket(unitName, startTime, endTime, callback) {
             // Show the updating indicator
             showUpdatingIndicator();
             
-            // Use the original start time but use current time as the end time for real-time data
+            // Use the current global start time and end time (which get updated when shifts change)
             const currentEndTime = new Date();
             
             // Send parameters to request new data
             const params = {
-                start_time: startTime.toISOString(),
+                start_time: startTime.toISOString(), // This will use the updated startTime if shift changed
                 end_time: currentEndTime.toISOString() // Update to current time
             };
             
-            console.log(`Requesting updated hourly data for "${unitName}" with end time: ${currentEndTime.toISOString()}`);
+            console.log(`Requesting updated hourly data for "${unitName}" with start time: ${startTime.toISOString()}, end time: ${currentEndTime.toISOString()}`);
             unitSocket.send(JSON.stringify(params));
         } else {
             console.warn(`Cannot send hourly update request - socket not open for "${unitName}", readyState: ${unitSocket.readyState}`);

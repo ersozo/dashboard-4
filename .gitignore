@@ -85,3 +85,10 @@ coverage.xml
 
 # pyenv
 .python-version 
+
+# Documentation and analysis files (auto-generated)
+AUTOMATION_FIX.md
+AUTOMATION_ISSUES_ANALYSIS.md
+*_ANALYSIS.md
+*_FIX.md
+test_automation.html

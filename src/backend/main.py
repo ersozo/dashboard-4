@@ -80,6 +80,15 @@ async def get_hourly_html():
     else:
         raise HTTPException(status_code=404, detail=f"File not found at {file_path}")
 
+# Test automation route
+@app.get("/test")
+async def get_test():
+    test_file_path = os.path.join(FRONTEND_DIR, "test_automation.html")
+    if os.path.exists(test_file_path):
+        return FileResponse(test_file_path)
+    else:
+        raise HTTPException(status_code=404, detail=f"Test file not found at {test_file_path}")
+
 # Class to manage WebSocket connections
 class ConnectionManager:
     def __init__(self):
