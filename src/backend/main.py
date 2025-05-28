@@ -89,6 +89,24 @@ async def get_test():
     else:
         raise HTTPException(status_code=404, detail=f"Test file not found at {test_file_path}")
 
+# Debug automation route
+@app.get("/debug")
+async def get_debug():
+    debug_file_path = os.path.join(FRONTEND_DIR, "debug_automation.html")
+    if os.path.exists(debug_file_path):
+        return FileResponse(debug_file_path)
+    else:
+        raise HTTPException(status_code=404, detail=f"Debug file not found at {debug_file_path}")
+
+# Shift change test route
+@app.get("/test-shifts")
+async def get_test_shifts():
+    test_file_path = os.path.join(FRONTEND_DIR, "test_shift_change.html")
+    if os.path.exists(test_file_path):
+        return FileResponse(test_file_path)
+    else:
+        raise HTTPException(status_code=404, detail=f"Test shifts file not found at {test_file_path}")
+
 # Class to manage WebSocket connections
 class ConnectionManager:
     def __init__(self):

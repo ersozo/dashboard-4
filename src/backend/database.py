@@ -78,14 +78,19 @@ def get_production_data(unit_name, start_time, end_time, current_time=None):
     # print(f"Normalized query times: {start_time} to {query_end_time}")
     # print(f"Using operational end time: {actual_end_time}")
     
-    # Ensure we're using the current time for real-time data
-    current_query_time = datetime.now(TIMEZONE)
-    # print(f"Current database query time: {current_query_time}")
+    # Use the actual end time provided by the frontend (for proper shift boundaries)
+    # But update to current time if it's a real-time query
+    final_query_end_time = query_end_time
+    if current_time:
+        # If current_time is provided, use it (for real-time updates)
+        final_query_end_time = actual_end_time
+    
+    # print(f"Final query end time: {final_query_end_time}")
     
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Now execute the main query with the most current end time
+    # Now execute the main query with the specified time range
     query = """
     SELECT 
         Model,
@@ -103,12 +108,12 @@ def get_production_data(unit_name, start_time, end_time, current_time=None):
     
     # print(f"\nExecuting main query for time range:")
     # print(f"Start: {start_time}")
-    # print(f"Query End: {query_end_time}")
+    # print(f"Query End: {final_query_end_time}")
     # if current_time:
     #     print(f"Operation End (Current): {actual_end_time}")
     
-    # Use the most current time for the query to ensure we get real-time data
-    cursor.execute(query, (unit_name, start_time, current_query_time))
+    # Use the properly calculated end time instead of always using current time
+    cursor.execute(query, (unit_name, start_time, final_query_end_time))
     # print("\nQuery executed successfully with current time")
     
     results = []

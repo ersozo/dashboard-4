@@ -50,36 +50,86 @@ function checkForNewTimePeriod() {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startDay = new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate());
 
-    // Only check for updates if we're viewing today's data
-    if (startDay.getTime() !== today.getTime()) {
-        return false;  // Don't update if viewing historical data
+    // Only check for updates if we're viewing today's data OR if it's a test scenario
+    // Allow test scenarios by checking if the date is in the future (test dates) or today
+    const isTestScenario = startDay.getTime() > today.getTime();
+    const isToday = startDay.getTime() === today.getTime();
+    
+    console.log(`[DEBUG checkForNewTimePeriod] now: ${now.toISOString()}, endTime: ${endTime.toISOString()}, startDay: ${startDay.toISOString()}, today: ${today.toISOString()}`);
+    console.log(`[DEBUG checkForNewTimePeriod] isToday: ${isToday}, isTestScenario: ${isTestScenario}`);
+    
+    if (!isToday && !isTestScenario) {
+        return false;  // Don't update if viewing historical data (past dates)
     }
 
-    const currentHour = now.getHours();
+    // For test scenarios, use the endTime to simulate being at that time
+    // For real scenarios, use current time
+    let timeToCheck = now;
+    const timeDifference = Math.abs(endTime.getTime() - now.getTime());
+    const twoHoursInMs = 2 * 60 * 60 * 1000;
+    
+    console.log(`[DEBUG checkForNewTimePeriod] Time difference: ${timeDifference}ms, Two hours: ${twoHoursInMs}ms, Should use simulated: ${isToday && timeDifference > twoHoursInMs}`);
+    
+    if (isToday && timeDifference > twoHoursInMs) {
+        // If endTime is more than 2 hours different from now, treat as test scenario
+        timeToCheck = endTime;
+        console.log(`[DEBUG] Using simulated time for test: ${timeToCheck.toISOString()} instead of real time: ${now.toISOString()}`);
+    }
+    
+    const currentHour = timeToCheck.getHours();
+    const currentMinutes = timeToCheck.getMinutes();
     const shifts = workingModes[workingModeValue].shifts;
-    const currentShiftConfig = shifts.find(s => s.id === timePresetValue);
     
-    if (!currentShiftConfig) return false;
-
-    // Check if we're currently in the expected shift
-    let isInCurrentShift = false;
+    // Find which shift we should be in now OR the next shift if we're near the end
+    let currentShiftConfig = null;
+    let isNearCurrentShiftEnd = false;
     
-    if (currentShiftConfig.crossesMidnight) {
-        // For shifts that cross midnight
-        isInCurrentShift = (currentHour >= currentShiftConfig.start) || (currentHour < currentShiftConfig.end);
-    } else {
-        // For regular shifts
-        isInCurrentShift = (currentHour >= currentShiftConfig.start) && (currentHour < currentShiftConfig.end);
+    // First, find the current shift
+    for (const shift of shifts) {
+        if (shift.crossesMidnight) {
+            if ((currentHour >= shift.start) || (currentHour < shift.end)) {
+                currentShiftConfig = shift;
+                break;
+            }
+        } else {
+            if ((currentHour >= shift.start) && (currentHour < shift.end)) {
+                currentShiftConfig = shift;
+                
+                // Check if we're near the end of this shift
+                if (currentHour === (shift.end - 1) && currentMinutes >= 55) {
+                    isNearCurrentShiftEnd = true;
+                }
+                break;
+            }
+        }
     }
     
-    // If we're not in the current shift anymore, we need to update
-    if (!isInCurrentShift) {
-        return true;
+    // If we're near the end of current shift, find the next shift
+    if (isNearCurrentShiftEnd && currentShiftConfig) {
+        console.log(`[DEBUG updateTimePeriod] Near end of shift ${currentShiftConfig.name}, looking for next shift...`);
+        
+        // Find the next shift
+        const currentShiftIndex = shifts.indexOf(currentShiftConfig);
+        const nextShiftIndex = (currentShiftIndex + 1) % shifts.length;
+        const nextShift = shifts[nextShiftIndex];
+        
+        console.log(`[DEBUG updateTimePeriod] Next shift found: ${nextShift.name}`);
+        currentShiftConfig = nextShift;
+        
+        // Update the preset to the new shift
+        timePresetValue = nextShift.id;
+    }
+    
+    console.log(`[DEBUG updateTimePeriod] Time to check: ${timeToCheck.toISOString()}, Hour: ${currentHour}, Found shift: ${currentShiftConfig?.name || 'None'}, Current preset: ${timePresetValue}, Near end: ${isNearCurrentShiftEnd}`);
+    
+    if (!currentShiftConfig) {
+        console.log(`[DEBUG updateTimePeriod] No active shift found for hour ${currentHour} - returning`);
+        return false; // No active shift found
     }
     
     // Check if the start time needs to be updated for midnight-crossing shifts
     if (currentShiftConfig.crossesMidnight) {
-        const expectedStartTime = getShiftStartTime(currentShiftConfig, now);
+        const expectedStartTime = getShiftStartTime(currentShiftConfig, timeToCheck);
         return Math.abs(startTime.getTime() - expectedStartTime.getTime()) > 60000; // More than 1 minute difference
     }
     
@@ -112,17 +162,33 @@ function updateTimePeriod() {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    // Only update if we're viewing today's data
+    // Only update if we're viewing today's data OR if it's a test scenario
     const startDay = new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate());
-    if (startDay.getTime() !== today.getTime()) {
-        return;  // Don't update if viewing historical data
+    const isTestScenario = startDay.getTime() > today.getTime();
+    const isToday = startDay.getTime() === today.getTime();
+    
+    if (!isToday && !isTestScenario) {
+        return;  // Don't update if viewing historical data (past dates)
     }
 
-    const currentHour = now.getHours();
+    // For test scenarios, use the endTime to simulate being at that time
+    // For real scenarios, use current time
+    let timeToCheck = now;
+    if (isToday && Math.abs(endTime.getTime() - now.getTime()) > 2 * 60 * 60 * 1000) {
+        // If endTime is more than 2 hours different from now, treat as test scenario
+        timeToCheck = endTime;
+        console.log(`[DEBUG updateTimePeriod] Using simulated time for test: ${timeToCheck.toISOString()}`);
+    }
+
+    const currentHour = timeToCheck.getHours();
+    const currentMinutes = timeToCheck.getMinutes();
     const shifts = workingModes[workingModeValue].shifts;
     
-    // Find which shift we should be in now
+    // Find which shift we should be in now OR the next shift if we're near the end
     let currentShiftConfig = null;
+    let isNearCurrentShiftEnd = false;
+    
+    // First, find the current shift
     for (const shift of shifts) {
         if (shift.crossesMidnight) {
             if ((currentHour >= shift.start) || (currentHour < shift.end)) {
@@ -132,27 +198,50 @@ function updateTimePeriod() {
         } else {
             if ((currentHour >= shift.start) && (currentHour < shift.end)) {
                 currentShiftConfig = shift;
+                
+                // Check if we're near the end of this shift
+                if (currentHour === (shift.end - 1) && currentMinutes >= 55) {
+                    isNearCurrentShiftEnd = true;
+                }
                 break;
             }
         }
     }
     
+    // If we're near the end of current shift, find the next shift
+    if (isNearCurrentShiftEnd && currentShiftConfig) {
+        console.log(`[DEBUG updateTimePeriod] Near end of shift ${currentShiftConfig.name}, looking for next shift...`);
+        
+        // Find the next shift
+        const currentShiftIndex = shifts.indexOf(currentShiftConfig);
+        const nextShiftIndex = (currentShiftIndex + 1) % shifts.length;
+        const nextShift = shifts[nextShiftIndex];
+        
+        console.log(`[DEBUG updateTimePeriod] Next shift found: ${nextShift.name}`);
+        currentShiftConfig = nextShift;
+        
+        // Update the preset to the new shift
+        timePresetValue = nextShift.id;
+    }
+    
+    console.log(`[DEBUG updateTimePeriod] Time to check: ${timeToCheck.toISOString()}, Hour: ${currentHour}, Found shift: ${currentShiftConfig?.name || 'None'}, Current preset: ${timePresetValue}, Near end: ${isNearCurrentShiftEnd}`);
+    
     if (!currentShiftConfig) {
+        console.log(`[DEBUG updateTimePeriod] No active shift found for hour ${currentHour} - returning`);
         return; // No active shift found
     }
     
-    // Update the preset value if it changed
-    if (timePresetValue !== currentShiftConfig.id) {
-        timePresetValue = currentShiftConfig.id;
-    }
-    
     // Calculate new start time
-    const newStartTime = getShiftStartTime(currentShiftConfig, now);
+    const newStartTime = getShiftStartTime(currentShiftConfig, timeToCheck);
+    
+    console.log(`[DEBUG updateTimePeriod] Current startTime: ${startTime.toISOString()}`);
+    console.log(`[DEBUG updateTimePeriod] Calculated newStartTime: ${newStartTime.toISOString()}`);
+    console.log(`[DEBUG updateTimePeriod] Times different? ${newStartTime.getTime() !== startTime.getTime()}`);
     
     // Only update if the new start time is different
     if (newStartTime && newStartTime.getTime() !== startTime.getTime()) {
         startTime = newStartTime;
-        endTime = now;
+        endTime = timeToCheck; // Use the time we're checking against, not always 'now'
         
         // Close existing WebSocket connections to restart with new time parameters
         for (const unitName in unitSockets) {
@@ -215,6 +304,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (checkForNewTimePeriod()) {
             console.log('Hourly view: Shift change detected, updating time period...');
             updateTimePeriod();
+        } else {
+            // Debug: Log why no shift change was detected
+            const now = new Date();
+            const currentHour = now.getHours();
+            const shifts = workingModes[workingModeValue].shifts;
+            const currentShiftConfig = shifts.find(s => s.id === timePresetValue);
+            console.log(`[DEBUG] No shift change needed. Current hour: ${currentHour}, Current preset: ${timePresetValue}, Expected shift: ${currentShiftConfig?.name || 'Unknown'}`);
         }
     }, 60000); // Check every minute
     
@@ -780,16 +876,17 @@ function connectHourlyWebSocket(unitName, startTime, endTime, callback) {
             // Show the updating indicator
             showUpdatingIndicator();
             
-            // Use the current global start time and end time (which get updated when shifts change)
-            const currentEndTime = new Date();
+            // Use the current global start time but respect shift end time boundaries
+            // For live data, we use current time as end time, but this respects the shift logic
+            const currentTime = new Date();
             
             // Send parameters to request new data
             const params = {
                 start_time: startTime.toISOString(), // This will use the updated startTime if shift changed
-                end_time: currentEndTime.toISOString() // Update to current time
+                end_time: currentTime.toISOString() // Always use current time for hourly updates to get latest data
             };
             
-            console.log(`Requesting updated hourly data for "${unitName}" with start time: ${startTime.toISOString()}, end time: ${currentEndTime.toISOString()}`);
+            console.log(`Requesting updated hourly data for "${unitName}" with start time: ${startTime.toISOString()}, end time: ${currentTime.toISOString()}`);
             unitSocket.send(JSON.stringify(params));
         } else {
             console.warn(`Cannot send hourly update request - socket not open for "${unitName}", readyState: ${unitSocket.readyState}`);

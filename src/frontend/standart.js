@@ -62,9 +62,13 @@ function checkForNewTimePeriod() {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startDay = new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate());
 
-    // Only check for updates if we're viewing today's data
-    if (startDay.getTime() !== today.getTime()) {
-        return false;  // Don't update if viewing historical data
+    // Only check for updates if we're viewing today's data OR if it's a test scenario
+    // Allow test scenarios by checking if the date is in the future (test dates) or today
+    const isTestScenario = startDay.getTime() > today.getTime();
+    const isToday = startDay.getTime() === today.getTime();
+    
+    if (!isToday && !isTestScenario) {
+        return false;  // Don't update if viewing historical data (past dates)
     }
 
     const currentHour = now.getHours();
@@ -124,10 +128,13 @@ function updateTimePeriod() {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    // Only update if we're viewing today's data
+    // Only update if we're viewing today's data OR if it's a test scenario
     const startDay = new Date(startTime.getFullYear(), startTime.getMonth(), startTime.getDate());
-    if (startDay.getTime() !== today.getTime()) {
-        return;  // Don't update if viewing historical data
+    const isTestScenario = startDay.getTime() > today.getTime();
+    const isToday = startDay.getTime() === today.getTime();
+    
+    if (!isToday && !isTestScenario) {
+        return;  // Don't update if viewing historical data (past dates)
     }
 
     const currentHour = now.getHours();
@@ -180,6 +187,19 @@ function updateTimePeriod() {
         // Clear existing unit data
         unitData = {};
         allConnectionsEstablished = false;
+        
+        // Clear existing tables to force recreation with fresh data
+        unitsContainer.innerHTML = '';
+        
+        // Reset summary display
+        summaryContainer.classList.add('hidden');
+        totalProduction.textContent = '-';
+        totalQuality.textContent = '-';
+        totalPerformance.textContent = '-';
+        totalOEE.textContent = '-';
+        
+        // Clear elements to flash array
+        elementsToFlashOnUpdate = [];
         
         // Reload data with new time period
         loadData();
@@ -264,6 +284,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (checkForNewTimePeriod()) {
             updateTimePeriod();
             console.log('Standard view: Time period updated automatically');
+        } else {
+            // Debug: Log why no shift change was detected
+            const now = new Date();
+            const currentHour = now.getHours();
+            const shifts = workingModes[workingModeValue].shifts;
+            const currentShiftConfig = shifts.find(s => s.id === timePresetValue);
+            console.log(`[DEBUG] No shift change needed. Current hour: ${currentHour}, Current preset: ${timePresetValue}, Expected shift: ${currentShiftConfig?.name || 'Unknown'}`);
         }
     }, 60000); // Check every minute
     
