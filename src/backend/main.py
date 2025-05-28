@@ -1,7 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from datetime import datetime, timedelta
 import json
 import asyncio
@@ -106,6 +106,15 @@ async def get_test_shifts():
         return FileResponse(test_file_path)
     else:
         raise HTTPException(status_code=404, detail=f"Test shifts file not found at {test_file_path}")
+
+# OEE comparison debug tool route
+@app.get("/debug-oee")
+async def get_debug_oee():
+    debug_file_path = os.path.join(os.path.dirname(__file__), "debug_oee_comparison.html")
+    if os.path.exists(debug_file_path):
+        return FileResponse(debug_file_path)
+    else:
+        raise HTTPException(status_code=404, detail=f"Debug OEE file not found at {debug_file_path}")
 
 # Class to manage WebSocket connections
 class ConnectionManager:

@@ -907,86 +907,103 @@ function connectWebSocket(unitName, startTime, endTime, callback) {
 
 // Update summary with production data
 function updateSummary(data) {
-    // Group data by model
-    const modelGroups = {};
+    // Group data by unit first, then by model within each unit
+    const unitGroups = {};
     
     data.forEach(item => {
-        if (!modelGroups[item.model]) {
-            modelGroups[item.model] = {
+        if (!unitGroups[item.unit]) {
+            unitGroups[item.unit] = {};
+        }
+        
+        if (!unitGroups[item.unit][item.model]) {
+            unitGroups[item.unit][item.model] = {
                 model: item.model,
                 success_qty: 0,
                 fail_qty: 0,
                 total_qty: 0,
-                target: item.target
+                target: item.target,
+                unit: item.unit
             };
         }
         
-        // Add quantities
-        modelGroups[item.model].success_qty += item.success_qty;
-        modelGroups[item.model].fail_qty += item.fail_qty;
-        modelGroups[item.model].total_qty += item.total_qty;
+        // Add quantities for this unit's model
+        unitGroups[item.unit][item.model].success_qty += item.success_qty;
+        unitGroups[item.unit][item.model].fail_qty += item.fail_qty;
+        unitGroups[item.unit][item.model].total_qty += item.total_qty;
     });
     
-    // Calculate totals
-    const models = Object.values(modelGroups);
-    
+    // Calculate totals across all units
     let totalSuccessQty = 0;
     let totalFailQty = 0;
     let totalQtyAll = 0;
-    
-    // Variables for weighted quality calculation
     let weightedQualitySum = 0;
     
-    // Variables for weighted performance and OEE calculation
-    let totalPerformanceWeightedSum = 0;
-    let totalPerformanceQtySum = 0;
-    let totalOEEWeightedSum = 0;
-    let totalOEEQtySum = 0;
+    // Calculate performance for each unit, then average them
+    let unitPerformances = [];
+    let validUnitsForPerformance = 0;
     
-    models.forEach(model => {
-        totalSuccessQty += model.success_qty;
-        totalFailQty += model.fail_qty;
-        totalQtyAll += model.total_qty;
+    for (const unitName in unitGroups) {
+        const unitModels = Object.values(unitGroups[unitName]);
         
-        // Calculate quality for this model
-        const modelQuality = model.total_qty > 0 ? model.success_qty / model.total_qty : 0;
+        // Calculate unit totals
+        let unitSuccessQty = 0;
+        let unitFailQty = 0;
+        let unitTotalQty = 0;
         
-        // Add to weighted quality sum - weight by total quantity
-        weightedQualitySum += modelQuality * model.total_qty;
+        unitModels.forEach(model => {
+            unitSuccessQty += model.success_qty;
+            unitFailQty += model.fail_qty;
+            unitTotalQty += model.total_qty;
+            
+            // Add to overall totals
+            totalSuccessQty += model.success_qty;
+            totalFailQty += model.fail_qty;
+            totalQtyAll += model.total_qty;
+            
+            // Calculate quality for this model and add to weighted sum
+            const modelQuality = model.total_qty > 0 ? model.success_qty / model.total_qty : 0;
+            weightedQualitySum += modelQuality * model.total_qty;
+        });
         
-        // If model has target data, calculate performance and OEE
-        if (model.target) {
-            // Get performance and OEE for this model from corresponding data entry
-            const dataEntry = data.find(item => 
-                item.model === model.model && 
-                item.performance !== undefined && 
-                item.performance !== null);
+        // Calculate performance for this unit
+        const modelsWithTarget = unitModels.filter(model => model.target && model.target > 0);
+        
+        if (modelsWithTarget.length > 0) {
+            const currentTime = new Date();
+            const operationTime = (currentTime - startTime) / 1000; // Convert to seconds
+            
+            if (operationTime > 0) {
+                let unitTheoreticalTime = 0;
                 
-            if (dataEntry) {
-                // Add to weighted performance sum - weight by total quantity
-                totalPerformanceWeightedSum += dataEntry.performance * model.total_qty;
-                totalPerformanceQtySum += model.total_qty;
+                modelsWithTarget.forEach(model => {
+                    // Calculate theoretical time for this model (same as hourly view)
+                    const idealCycleTime = 3600 / model.target; // seconds per unit
+                    const modelTheoreticalTime = model.total_qty * idealCycleTime;
+                    unitTheoreticalTime += modelTheoreticalTime;
+                });
                 
-                // Calculate OEE for this model if quality and performance are available
-                const modelOEE = modelQuality * dataEntry.performance;
-                
-                // Add to weighted OEE sum - weight by total quantity
-                totalOEEWeightedSum += modelOEE * model.total_qty;
-                totalOEEQtySum += model.total_qty;
+                // Calculate this unit's performance using theoretical time method
+                if (unitTheoreticalTime > 0) {
+                    const unitPerformance = unitTheoreticalTime / operationTime;
+                    unitPerformances.push(unitPerformance);
+                    validUnitsForPerformance++;
+                }
             }
         }
-    });
+    }
     
-    // Calculate overall metrics with proper weighting
+    // Calculate overall metrics
     const overallQuality = totalQtyAll > 0 ? weightedQualitySum / totalQtyAll : 0;
     
-    const overallPerformance = totalPerformanceQtySum > 0 
-        ? totalPerformanceWeightedSum / totalPerformanceQtySum 
-        : 0;
-        
-    const overallOEE = totalOEEQtySum > 0 
-        ? totalOEEWeightedSum / totalOEEQtySum
-        : 0;
+    // Calculate average performance across units
+    let overallPerformance = 0;
+    if (validUnitsForPerformance > 0) {
+        const sumPerformances = unitPerformances.reduce((sum, perf) => sum + perf, 0);
+        overallPerformance = sumPerformances / validUnitsForPerformance;
+    }
+    
+    // Calculate overall OEE
+    const overallOEE = overallQuality * overallPerformance;
     
     // Check if values have changed and update
     const oldTotalProduction = totalProduction.textContent;
