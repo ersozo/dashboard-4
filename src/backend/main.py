@@ -116,6 +116,23 @@ async def get_debug_oee():
     else:
         raise HTTPException(status_code=404, detail=f"Debug OEE file not found at {debug_file_path}")
 
+# Report route
+@app.get("/report")
+async def get_report():
+    report_file_path = os.path.join(FRONTEND_DIR, "report.html")
+    if os.path.exists(report_file_path):
+        return FileResponse(report_file_path)
+    else:
+        raise HTTPException(status_code=404, detail="Report page not found")
+
+@app.get("/report.js")
+async def get_report_js():
+    report_js_path = os.path.join(FRONTEND_DIR, "report.js")
+    if os.path.exists(report_js_path):
+        return FileResponse(report_js_path, media_type="application/javascript")
+    else:
+        raise HTTPException(status_code=404, detail="Report JavaScript not found")
+
 # Class to manage WebSocket connections
 class ConnectionManager:
     def __init__(self):

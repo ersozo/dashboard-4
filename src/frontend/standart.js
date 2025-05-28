@@ -262,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // If no valid parameters, redirect back to home
     if (selectedUnits.length === 0 || !startTime || !endTime) {
-        alert('Missing required parameters. Redirecting to dashboard.');
+        alert('Eksik parametreler var. Ana sayfaya yönlendiriyoruz.');
         window.location.href = '/';
         return;
     }
@@ -343,7 +343,7 @@ function updateSelectedUnitsDisplay() {
     
     selectedUnits.forEach(unit => {
         const tag = document.createElement('span');
-        tag.className = 'bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-medium';
+        tag.className = 'bg-blue-100 text-blue-800 px-3 py-1 rounded text-sm font-medium';
         tag.textContent = unit;
         selectedUnitsDisplay.appendChild(tag);
     });
@@ -1007,7 +1007,7 @@ function updateSummary(data) {
     
     // Check if values have changed and update
     const oldTotalProduction = totalProduction.textContent;
-    const newTotalProduction = totalQtyAll.toString();
+    const newTotalProduction = totalQtyAll.toLocaleString();
     if (oldTotalProduction !== newTotalProduction) {
         totalProduction.textContent = newTotalProduction;
         elementsToFlashOnUpdate.push(totalProduction);

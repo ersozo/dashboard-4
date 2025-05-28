@@ -14,6 +14,7 @@ const totalPerformance = document.getElementById('total-performance');
 const totalOEE = document.getElementById('total-oee');
 const standardViewBtn = document.getElementById('standard-view-btn');
 const hourlyViewBtn = document.getElementById('hourly-view-btn');
+const reportViewBtn = document.getElementById('report-view-btn');
 
 // Track the selected units
 let selectedUnits = [];
@@ -440,6 +441,57 @@ hourlyViewBtn.addEventListener('click', () => {
     
     // Open in new window with explicit _blank target to ensure it always opens in a new window
     const newWindow = window.open(`/hourly.html?${params.toString()}`, '_blank');
+    if (newWindow) {
+        // If successful, focus the new window
+        newWindow.focus();
+    } else {
+        // If popup was blocked, alert the user
+        alert('Tarayıcınızda pop-up engellendi. Lütfen bu site için pop-uplara izin veriniz.');
+    }
+});
+
+// Handle report view button click
+reportViewBtn.addEventListener('click', () => {
+    // Validate inputs
+    const startTime = parseInputDateTime(startTimeInput.value);
+    const endTime = parseInputDateTime(endTimeInput.value);
+    
+    if (!startTime || !endTime) {
+        alert('Lütfen geçerli bir başlangıç ve bitiş zamanı seçiniz');
+        return;
+    }
+    
+    if (selectedUnits.length === 0) {
+        alert('Lütfen en az bir üretim yerini seçiniz');
+        return;
+    }
+    
+    // Create URL parameters
+    const params = new URLSearchParams();
+    
+    // Add selected units
+    selectedUnits.forEach(unit => {
+        params.append('units', unit);
+    });
+    
+    // Add time parameters
+    params.append('start', startTime.toISOString());
+    params.append('end', endTime.toISOString());
+    
+    // Add working mode
+    const selectedWorkingMode = document.querySelector('input[name="working-mode"]:checked');
+    if (selectedWorkingMode && selectedWorkingMode.value) {
+        params.append('workingMode', selectedWorkingMode.value);
+    }
+    
+    // Add preset if available
+    const selectedPreset = document.querySelector('input[name="time-preset"]:checked');
+    if (selectedPreset && selectedPreset.value) {
+        params.append('preset', selectedPreset.value);
+    }
+    
+    // Open in new window with explicit _blank target to ensure it always opens in a new window
+    const newWindow = window.open(`/report?${params.toString()}`, '_blank');
     if (newWindow) {
         // If successful, focus the new window
         newWindow.focus();
